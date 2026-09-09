@@ -1,0 +1,43 @@
+name: Fetch CWA Weather Data
+
+on:
+  schedule:
+    # cron 使用 UTC 時間。這裡設定「台灣時間每小時的第 5 分」執行一次：
+    # UTC+8，所以 UTC 的分鐘設 5，小時不變（台灣 08:05 = UTC 00:05）
+    - cron: "5 * * * *"
+  workflow_dispatch: {} # 允許在 GitHub 網頁上手動觸發，方便測試
+
+permissions:
+  contents: write # 需要寫入權限才能 commit 回 repo
+
+jobs:
+  fetch-weather:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Fetch weather data
+        env:
+          CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
+          # 如果只想抓特定縣市/測站，取消下面兩行的註解並填值
+          # COUNTY: "新北市"
+          # STATION_NAME: "基隆"
+        run: python scripts/fetch_weather.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "沒有資料變化，略過 commit"
+          else
+            git commit -m "chore: update weather data $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            git push
+          fi
