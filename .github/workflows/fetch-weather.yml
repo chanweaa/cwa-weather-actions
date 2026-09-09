@@ -25,7 +25,7 @@ jobs:
       - name: Fetch weather data
         env:
           CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
-           如果只想抓特定縣市/測站，取消下面兩行的註解並填值
+           # 如果只想抓特定縣市/測站，取消下面兩行的註解並填值
           COUNTY: "新北市"
           STATION_NAME: "基隆"
         run: python scripts/fetch_weather.py
