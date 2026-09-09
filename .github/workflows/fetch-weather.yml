@@ -2,13 +2,13 @@ name: Fetch CWA Weather Data
 
 on:
   schedule:
-    # cron 使用 UTC 時間。這裡設定「台灣時間每小時的第 5 分」執行一次：
-    # UTC+8，所以 UTC 的分鐘設 5，小時不變（台灣 08:05 = UTC 00:05）
-    - cron: "5 * * * *"
-  workflow_dispatch: {} # 允許在 GitHub 網頁上手動觸發，方便測試
+    # cron 使用 UTC 時間。這裡設定「每 6 小時執行一次」：
+    # UTC 00:05 / 06:05 / 12:05 / 18:05 = 台灣時間 08:05 / 14:05 / 20:05 / 02:05
+    - cron: "5 */6 * * *"
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便測試
 
 permissions:
-  contents: write # 需要寫入權限才能 commit 回 repo
+  contents: write   # 需要寫入權限才能 commit 回 repo
 
 jobs:
   fetch-weather:
@@ -23,11 +23,11 @@ jobs:
           python-version: "3.11"
 
       - name: Fetch weather data
+        id: fetch
         env:
           CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
-           # 如果只想抓特定縣市/測站，取消下面兩行的註解並填值
-          COUNTY: "新北市"
-          STATION_NAME: "基隆"
+          COUNTIES: "新北市,基隆市"
+          LOCATION_KEYWORDS: "汐止,七堵,五堵"
         run: python scripts/fetch_weather.py
 
       - name: Commit and push if changed
@@ -41,3 +41,18 @@ jobs:
             git commit -m "chore: update weather data $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             git push
           fi
+
+      - name: Email results to Gmail
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: ${{ secrets.GMAIL_USERNAME }}
+          to: ${{ secrets.MAIL_TO }}
+          subject: "氣溫資料更新（汐止/七堵/五堵）- ${{ steps.fetch.outputs.station_count }} 筆測站"
+          body: file://${{ steps.fetch.outputs.latest_file }}
+          attachments: ${{ steps.fetch.outputs.week_file }}
+          convert_markdown: true
